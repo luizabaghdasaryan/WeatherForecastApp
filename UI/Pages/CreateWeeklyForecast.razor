@@ -1,0 +1,101 @@
+﻿@page "/weather-create-weekly/{region}/{id:int}"
+@using UI.Services;
+@using global::Shared.Models;
+@inject IForecastService service
+@inject NavigationManager navigation
+
+<PageTitle>Create Weekly Forecast</PageTitle>
+
+@if (availableDays is not null)
+{
+    @if (availableDays.Length == 0)
+    {
+        <h3>No Available Days for Region: @Region to create forecast</h3>
+    }
+    else
+    {
+        <EditForm Model="@Forecast" OnValidSubmit="@HandleValidSubmit">
+            <DataAnnotationsValidator />
+            @for (int i = 0; i < Forecast.DailyForecasts.Count; i++)
+            {
+                var dailyForecast = Forecast.DailyForecasts[i];
+                <strong>Forecast For @availableDays[i] </strong> <br />
+                @if (summaries is not null)
+                {
+                    <div class="form-group">
+                        <label for="summaries">Choose a summary:</label>
+                        <InputSelect id="summaries" @bind-Value="@dailyForecast.SummaryId" required>
+                            @foreach (var summary in summaries)
+                            {
+                                <option value="@summary?.Id">@summary?.Name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => dailyForecast.SummaryId)" />
+                    </div>
+                    <br />
+                }
+                @for (int j = 0; j < dailyForecast.HourlyForecasts.Count; j++)
+                {
+                    var hourlyForecast = dailyForecast.HourlyForecasts[j];
+                    <div class="hourly-detail">
+                        <label><strong>@hourlyForecast.Hour:00</strong></label>
+                        <InputNumber @bind-Value="@hourlyForecast.TemperatureC" /> °C
+                        <ValidationMessage For="@(() => hourlyForecast.TemperatureC)" />
+                    </div>
+                    <br />
+                }
+            }
+        
+            <div class="mt-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <NavLink class="btn btn-secondary" href="@($"/weather/{Region}/{Id}/{DateString}")">Cancel</NavLink>
+            </div>
+        </EditForm>
+    }
+}
+@code {
+    [Parameter]
+    public string Region { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    [Parameter]
+    public string DateString { get; set; } = string.Empty;
+
+    public WeeklyForecastInputModel Forecast { get; set; } = new WeeklyForecastInputModel();
+
+    private RegionModel[]? regions;
+
+    private SummaryModel[]? summaries;
+
+    private DailyForecastDetailsModel? forecastToUpdateDetails;
+
+    private string[]? availableDays;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Forecast.RegionId = Id;
+        regions = await service.GetRegionAsync();
+        summaries = await service.GetSummariesAsync();
+        availableDays = await service.GetAvailableDays(Id);
+
+        if (availableDays is not null && availableDays.Length != 0)
+        {
+            Forecast.DailyForecasts = Enumerable.Range(0, availableDays.Length)
+                    .Select(h => new DailyForecastForWeeklyInputModel
+                        {
+                            Date = DateTime.Parse(availableDays[h]),
+                            HourlyForecasts = Enumerable.Range(0, 2)
+                                                 .Select(h => new HourlyForecastInputModel { Hour = h }).ToList()
+                        }).ToList();
+           
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        await service.CreateWeeklyForecastAsync(Forecast);
+        navigation.NavigateTo($"/weather/{Region}/{Id}");
+    }
+}

@@ -1,0 +1,101 @@
+﻿@page "/weather-create-daily/{region}/{id:int}"
+@using UI.Services;
+@using global::Shared.Models;
+@inject IForecastService service
+@inject NavigationManager navigation
+
+<PageTitle>Create Daily Forecast</PageTitle>
+
+@if (availableDays is not null)
+{
+    @if (availableDays.Length == 0)
+    {
+        <h3>No Available Days for Region: @Region to create forecast</h3>
+    }
+    else
+    {
+        <EditForm Model="@Forecast" OnValidSubmit="@HandleValidSubmit">
+            <DataAnnotationsValidator />
+
+            @if (availableDays is not null)
+            {
+                <div class="form-group">
+                    <label for="days">Choose a day:</label>
+                    <InputSelect id="days" @bind-Value="@Forecast.Date" required>
+                        @foreach (var day in availableDays)
+                        {
+                            <option value="@DateTime.Parse(day)">@day</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => Forecast.Date)" />
+                </div>
+                <br />
+            }
+
+            @if (summaries is not null)
+            {
+                <div class="form-group">
+                    <label for="summaries">Choose a summary:</label>
+                    <InputSelect id="summaries" @bind-Value="@Forecast.SummaryId" required>
+                        @foreach (var summary in summaries)
+                        {
+                            <option value="@summary?.Id">@summary?.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => Forecast.SummaryId)" />
+                </div>
+                <br />
+            }
+            @for (int i = 0; i < Forecast.HourlyForecasts.Count; i++)
+            {
+                var hourlyForecast = Forecast.HourlyForecasts[i];
+                <div class="hourly-detail">
+                    <label><strong>@hourlyForecast.Hour:00</strong></label>
+                    <InputNumber @bind-Value="@hourlyForecast.TemperatureC" /> °C
+                    <ValidationMessage For="@(() => hourlyForecast.TemperatureC)" />
+                </div>
+                <br />
+            }
+
+            <div class="mt-2">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <NavLink class="btn btn-secondary" href="@($"/weather/{Region}/{Id}")">Cancel</NavLink>
+            </div>
+        </EditForm>
+    }
+}
+
+@code {
+    [Parameter]
+    public string Region { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    [Parameter]
+    public string DateString { get; set; } = string.Empty;
+
+    public DailyForecastInputModel Forecast { get; set; } = new DailyForecastInputModel()
+    {
+        HourlyForecasts = Enumerable.Range(0, 2)
+            .Select(h => new HourlyForecastInputModel { Hour = h }).ToList()
+    };
+
+    private RegionModel[]? regions;
+    private SummaryModel[]? summaries;
+    private string[]? availableDays;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Forecast.RegionId = Id;
+        regions = await service.GetRegionAsync();
+        summaries = await service.GetSummariesAsync();
+        availableDays = await service.GetAvailableDays(Id);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        var newForecastId = await service.CreateDailyForecastAsync(Forecast);
+        navigation.NavigateTo($"/weather-details/{newForecastId}/{Region}/{Id}");
+    }
+}

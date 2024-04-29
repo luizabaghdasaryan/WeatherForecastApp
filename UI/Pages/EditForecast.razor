@@ -1,0 +1,85 @@
+﻿@page "/weather-edit/{id:int}/{region}/{regionId:int}"
+@using UI.Services;
+@using global::Shared.Models;
+@inject IForecastService service
+@inject NavigationManager navigation
+
+<h3>Edit Forecast for Region: @Region - Date: @DateString</h3>
+<br />
+
+<EditForm Model="@Forecast" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+        @if (summaries is not null)
+        {
+            <div class="form-group">
+                <label for="summaries">Choose a summary:</label>
+                <InputSelect id="summaries" @bind-Value="@Forecast.SummaryId" required>
+                    @foreach (var summary in summaries)
+                    {
+                        <option value="@summary?.Id">@summary?.Name</option>
+                    }
+
+
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => Forecast.SummaryId)" />
+            </div>
+            <br />
+        }
+        @for (int i = 0; i < Forecast.HourlyForecasts.Count; i++)
+        {
+            var hourlyForecast = Forecast.HourlyForecasts[i];
+                <div class="hourly-detail">
+                    <label><strong>@hourlyForecast.Hour:00</strong></label>
+                        <InputNumber @bind-Value="@hourlyForecast.TemperatureC" /> °C
+                    <ValidationMessage For="@(() => hourlyForecast.TemperatureC)" />
+                </div>
+            <br />
+        }
+    <div class="mt-2">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <NavLink class="btn btn-secondary" href="@($"/weather/{Region}/{RegionId}")">Cancel</NavLink>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public string Region { get; set; } = string.Empty;
+
+    [Parameter]
+    public int RegionId { get; set; }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    [Parameter]
+    public string DateString { get; set; } = string.Empty;
+
+    private RegionModel[]? regions;
+    private SummaryModel[]? summaries;
+    private DailyForecastDetailsModel? forecastToUpdateDetails;
+
+    public DailyForecastUpdateModel Forecast { get; set; } = new DailyForecastUpdateModel()
+    {
+        HourlyForecasts = Enumerable.Range(0, 2)
+            .Select(h => new HourlyForecastInputModel { Hour = h}).ToList()
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        regions = await service.GetRegionAsync();
+        summaries = await service.GetSummariesAsync();
+        forecastToUpdateDetails = await service.GetById(Id);
+        for (int i = 0; i < 2; i++)
+        {
+            Forecast.HourlyForecasts[i].TemperatureC = forecastToUpdateDetails.HourlyForecasts[i].TemperatureC;
+        }
+        Forecast.SummaryId = summaries.First(s => s.Name == forecastToUpdateDetails.Summary).Id;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        await service.UpdateForecastAsync(Id, Forecast);
+        navigation.NavigateTo($"/weather/{Region}/{RegionId}");
+    }
+}

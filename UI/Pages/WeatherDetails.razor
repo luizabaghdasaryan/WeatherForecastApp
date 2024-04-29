@@ -1,0 +1,79 @@
+﻿@page "/weather-details/{id:int}/{region}/{regionId:int}"
+@using System.Globalization;
+@using UI.Services;
+@using global::Shared.Models;
+
+@inject IForecastService service
+
+<PageTitle>Weather Details</PageTitle>
+
+<h3>Weather Details for @Region - Date: @forecastDetails?.DayWithMonth, @forecastDetails?.DayOfWeek</h3>
+<h5>Max Temperature: @forecastDetails?.MaxTemperature°C</h5>
+<h5>Min Temperature: @forecastDetails?.MinTemperature°C</h5>
+<h5>Summary: @forecastDetails?.Summary</h5>
+
+@if (upcomingWarmerDay is not null && forecastDetails is not null)
+{
+    @if (upcomingWarmerDay.Value.ToString("yyyy-MM-dd") == forecastDetails.Date)
+    {
+        <h5>No Upcoming Warmer Day</h5>
+    }
+    else
+    {
+        <h5>Upcoming Warmer Day: @upcomingWarmerDay.Value.ToString("dd MMMM")</h5>
+    }
+}
+<br />
+
+@if (forecastDetails == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table table-sm table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Hour</th>
+                <th>Temp. (C)</th>
+                <th>Temp. (F)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var forecast in forecastDetails.HourlyForecasts)
+            {
+                <tr>
+                    <td>@forecast.Hour</td>
+                    <td>@forecast.TemperatureC</td>
+                    <td>@forecast.TemperatureF</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <NavLink class="btn btn-outline-danger" style="background-color:darkmagenta;border-color:darkmagenta;color:white;"
+             href="@($"/weather-edit/{Id}/{Region}/{RegionId}")">Edit</NavLink>
+    <NavLink class="btn btn-secondary" href="@($"/weather/{Region}/{RegionId}")">Back</NavLink>
+}
+
+@code {
+    [Parameter]
+    public string Region { get; set; } = string.Empty;
+
+    [Parameter]
+    public int RegionId { get; set; }
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private DailyForecastDetailsModel? forecastDetails;
+
+    private DateTime? upcomingWarmerDay;
+
+    protected override async Task OnInitializedAsync()
+    {
+        forecastDetails = await service.GetById(Id);
+        upcomingWarmerDay = await service.GetUpcomingWarmerDay(RegionId, forecastDetails.Date);
+        string a = upcomingWarmerDay.Value.ToString("dd MMMM");
+    }
+}

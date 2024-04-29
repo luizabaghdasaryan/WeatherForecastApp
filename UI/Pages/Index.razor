@@ -1,0 +1,53 @@
+﻿@page "/"
+@using UI.Services;
+@using global::Shared.Models;
+@inject IForecastService service;
+@inject NavigationManager navigation
+
+<PageTitle>Index</PageTitle>
+
+<h1>Welcome to Weather Forecasts!</h1>
+<p>
+    To view the weather forecast for a specific region, please select a region from the dropdown below:
+</p>
+
+@if (regions is not null)
+{
+<div>
+    <select @onchange="OnRegionSelected">
+        <option disabled selected>Select a region</option>
+        @foreach (var region in regions)
+        {
+            <option value="@region?.Id">@region?.Name</option>
+        }
+    </select>
+</div>
+}
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+@code {
+    private RegionModel[]? regions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        regions = await service.GetRegionAsync();
+    }
+
+    private void OnRegionSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int regionId))
+        {
+            NavigateToRegion(regionId);
+        }
+    }
+
+    private void NavigateToRegion(int regionId)
+    {
+        string regionName = regions!.First(r => r.Id == regionId).Name!;
+        string[] regionNameWords = regionName.Split(' ');
+        string joinedName = string.Join("-", regionNameWords);
+        string url = $"/weather/{joinedName}/{regionId}";
+        navigation.NavigateTo(url);
+    }
+}
